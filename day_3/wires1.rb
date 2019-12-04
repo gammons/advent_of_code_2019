@@ -7,14 +7,14 @@ class WireIntersector
   end
 
   def nearest_intersection(wire_locations1, wire_locations2)
-    populate_grid(wire_locations1)
-    populate_grid(wire_locations2)
+    populate_grid(wire_locations1, 1)
+    populate_grid(wire_locations2, 2)
     manhatten
   end
 
   private
 
-  def populate_grid(wire)
+  def populate_grid(wire, wire_num)
     x = 0
     y = 0
 
@@ -26,22 +26,22 @@ class WireIntersector
       when "R"
         moves.times do
           x += 1
-          populate_grid_point(x,y)
+          populate_grid_point(x,y, wire_num)
         end
       when "L"
         moves.times do
           x -= 1
-          populate_grid_point(x,y)
+          populate_grid_point(x,y, wire_num)
         end
       when "U"
         moves.times do
           y += 1
-          populate_grid_point(x,y)
+          populate_grid_point(x,y, wire_num)
         end
       when "D"
         moves.times do
           y -= 1
-          populate_grid_point(x,y)
+          populate_grid_point(x,y, wire_num)
         end
       end
     end
@@ -55,11 +55,11 @@ class WireIntersector
     @min_location ||= @intersections.min {|l1,l2| (l1[0].abs + l1[1].abs) <=> (l2[0].abs + l2[1].abs) }
   end
 
-  def populate_grid_point(x,y)
-    if @wire_grid[x][y] == 1
+  def populate_grid_point(x,y, wire_num)
+    if !@wire_grid[x][y].nil? && @wire_grid[x][y] != wire_num
       @intersections.push([x,y])
     end
-    @wire_grid[x][y] = 1
+    @wire_grid[x][y] = wire_num
   end
 end
 
