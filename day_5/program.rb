@@ -5,6 +5,10 @@ module INSTRUCTIONS
   MULTIPLY = "2"
   INPUT = "3"
   OUTPUT = "4"
+  JUMP_IF_TRUE = "5"
+  JUMP_IF_FALSE = "6"
+  LESS_THAN = "7"
+  EQUALS = "8"
   O_END = "99"
 end
 
@@ -13,11 +17,17 @@ module PARAMETER_MODES
   IMMEDIATE = 1
 end
 
+def debug(msg)
+  return
+  puts msg
+end
+
 class Instruction
   def initialize(ip, data)
     @ip = ip
     @data = data
     @opcode = @data[@ip]
+    debug "    Params = #{params.inspect}"
   end
 
   def process; end
@@ -97,6 +107,54 @@ class EndInstruction < Instruction
   end
 end
 
+class JumpIfTrueInstruction < Instruction
+  def next_ip_position
+    if value_for(0) != 0
+      value_for(1)
+    else
+      @ip + params.length + 1
+    end
+  end
+
+  def number_of_params
+    2
+  end
+end
+
+class JumpIfFalseInstruction < Instruction
+  def next_ip_position
+    if value_for(0) == 0
+      value_for(1)
+    else
+      @ip + params.length + 1
+    end
+  end
+
+  def number_of_params
+    2
+  end
+end
+
+class LessThanInstruction < Instruction
+  def process
+    @data[params[2].to_i] = (value_for(0) < value_for(1)) ? 1 : 0
+  end
+
+  def number_of_params
+    3
+  end
+end
+
+class EqualsInstruction < Instruction
+  def process
+    @data[params[2].to_i] = (value_for(0) == value_for(1)) ? 1 : 0
+  end
+
+  def number_of_params
+    3
+  end
+end
+
 class Computer
   def initialize(data)
     @ip = 0
@@ -105,7 +163,7 @@ class Computer
 
   def process
     while @ip < @data.length
-      instruction = get_instruction(@data[@ip], number_of_params(@data[@ip]))
+      instruction = get_instruction(@data[@ip])
       instruction.process
       @ip = instruction.next_ip_position
       debug "Step at ip #{@ip}"
@@ -114,7 +172,7 @@ class Computer
 
   private
 
-  def get_instruction(raw_opcode, param_count)
+  def get_instruction(raw_opcode)
     opcode = raw_opcode
     if raw_opcode.length > 1
       opcode = (raw_opcode.chars[raw_opcode.chars.length - 2..raw_opcode.chars.length].join).to_i.to_s
@@ -131,16 +189,20 @@ class Computer
       InputInstruction.new(@ip, @data)
     when INSTRUCTIONS::OUTPUT
       OutputInstruction.new(@ip, @data)
+    when INSTRUCTIONS::JUMP_IF_TRUE
+      JumpIfTrueInstruction.new(@ip, @data)
+    when INSTRUCTIONS::JUMP_IF_FALSE
+      JumpIfFalseInstruction.new(@ip, @data)
+    when INSTRUCTIONS::LESS_THAN
+      LessThanInstruction.new(@ip, @data)
+    when INSTRUCTIONS::EQUALS
+      EqualsInstruction.new(@ip, @data)
     when INSTRUCTIONS::O_END
       EndInstruction.new(@ip, @data)
       exit
     end
   end
 
-  def debug(msg)
-    return
-    puts msg
-  end
 end
 
 data = File.read("input.txt").split(",")
