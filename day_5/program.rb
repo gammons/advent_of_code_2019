@@ -14,7 +14,8 @@ module PARAMETER_MODES
 end
 
 class Instruction
-  def initialize(opcode, params, data)
+  def initialize(opcode, ip, params, data)
+    @ip = ip
     @opcode = opcode
     @params = params
     @data = data
@@ -36,6 +37,9 @@ class Instruction
     return @opcode.chars.reverse[param_num + 2].to_i
   end
 
+  def next_ip_position
+    @ip + @params.length + 1
+  end
 end
 
 class AddInstruction < Instruction
@@ -72,15 +76,16 @@ class Computer
 
   def process
     while @ip < @data.length
-      process_opcode(@data[@ip], number_of_params(@data[@ip]))
-      @ip += number_of_params(@data[@ip]) + 1
+      instruction = get_instruction(@data[@ip], number_of_params(@data[@ip]))
+      instruction.process
+      @ip = instruction.next_ip_position
       debug "Step at ip #{@ip}"
     end
   end
 
   private
 
-  def process_opcode(raw_opcode, param_count)
+  def get_instruction(raw_opcode, param_count)
     opcode = raw_opcode
     if raw_opcode.length > 1
       opcode = (raw_opcode.chars[raw_opcode.chars.length - 2..raw_opcode.chars.length].join).to_i.to_s
@@ -94,17 +99,13 @@ class Computer
     debug "    params = #{params}"
     case opcode
     when INSTRUCTIONS::ADD
-      debug "Add instruction with params #{params}"
-      AddInstruction.new(@data[@ip], params, @data).process
+      AddInstruction.new(@data[@ip], @ip, params, @data)
     when INSTRUCTIONS::MULTIPLY
-      debug "Multiply instruction with params #{params}"
-      MultiplyInstruction.new(@data[@ip], params, @data).process
+      MultiplyInstruction.new(@data[@ip], @ip, params, @data)
     when INSTRUCTIONS::INPUT
-      debug "input instruction with params #{params}"
-      InputInstruction.new(@data[@ip], params, @data).process
+      InputInstruction.new(@data[@ip], @ip, params, @data)
     when INSTRUCTIONS::OUTPUT
-      debug "output instruction with params #{params}"
-      OutputInstruction.new(@data[@ip], params, @data).process
+      OutputInstruction.new(@data[@ip], @ip, params, @data)
     when INSTRUCTIONS::O_END
       exit
     end
@@ -124,5 +125,5 @@ class Computer
   end
 end
 
-data = File.read("input.txt").split(",")#.map {|n| nto_i }
+data = File.read("input.txt").split(",")
 puts Computer.new(data).process
