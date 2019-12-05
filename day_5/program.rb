@@ -33,20 +33,20 @@ class Instruction
 
   # Get the parameter mode for param_num, zero based.
   def parameter_mode_for(param_num)
-    return @opcode.chars.reverse[param_num + 2]
+    return @opcode.chars.reverse[param_num + 2].to_i
   end
 
 end
 
 class AddInstruction < Instruction
   def process
-    @data[value_for(2)] = value_for(0) + value_for(1)
+    @data[@params[2].to_i] = (value_for(0) + value_for(1)).to_s
   end
 end
 
 class MultiplyInstruction < Instruction
   def process
-    @data[value_for(2)] = value_for(0) * value_for(1)
+    @data[@params[2].to_i] = (value_for(0) * value_for(1)).to_s
   end
 end
 
@@ -74,8 +74,7 @@ class Computer
     while @ip < @data.length
       process_opcode(@data[@ip], number_of_params(@data[@ip]))
       @ip += number_of_params(@data[@ip]) + 1
-      puts "Step"
-      gets
+      debug "Step at ip #{@ip}"
     end
   end
 
@@ -84,23 +83,24 @@ class Computer
   def process_opcode(raw_opcode, param_count)
     opcode = raw_opcode
     if raw_opcode.length > 1
-      opcode = raw_opcode.chars[raw_opcode.chars.length - 2..raw_opcode.chars.length].join
+      opcode = (raw_opcode.chars[raw_opcode.chars.length - 2..raw_opcode.chars.length].join).to_i.to_s
     end
-    params = @data[(@ip + 1)..(@ip + 1 + param_count)]
-    puts "    opcode = '#{opcode}'"
-    puts "    params = #{params}"
+    params = @data[(@ip + 1)..(@ip + param_count)]
+    debug "    raw_opcode = '#{raw_opcode}'"
+    debug "    opcode = '#{opcode}'"
+    debug "    params = #{params}"
     case opcode
     when INSTRUCTIONS::ADD
-      puts "Add instruction with params #{params}"
+      debug "Add instruction with params #{params}"
       AddInstruction.new(@data[@ip], params, @data).process
     when INSTRUCTIONS::MULTIPLY
-      puts "Multiply instruction with params #{params}"
+      debug "Multiply instruction with params #{params}"
       MultiplyInstruction.new(@data[@ip], params, @data).process
     when INSTRUCTIONS::INPUT
-      puts "input instruction with params #{params}"
+      debug "input instruction with params #{params}"
       InputInstruction.new(@data[@ip], params, @data).process
     when INSTRUCTIONS::OUTPUT
-      puts "output instruction with params #{params}"
+      debug "output instruction with params #{params}"
       OutputInstruction.new(@data[@ip], params, @data).process
     when INSTRUCTIONS::O_END
       exit
@@ -108,17 +108,16 @@ class Computer
   end
 
   def number_of_params(raw_opcode)
-    return 1 if %w(1 2 3 4).include?(raw_opcode)
+    raw_opcode.reverse[0]
+    return 3 if raw_opcode.reverse[0] == "1"
+    return 3 if raw_opcode.reverse[0] == "2"
+    return 1 if raw_opcode.reverse[0] == "3"
+    return 1 if raw_opcode.reverse[0] == "4"
+  end
 
-    reversed = raw_opcode.reverse
-    param_1_mode = reversed[2]
-    param_2_mode = reversed[3]
-    param_3_mode = reversed[4]
-
-    return 0 if param_1_mode.nil?
-    return 1 if param_2_mode.nil?
-    return 2 if param_3_mode.nil?
-    return 3
+  def debug(msg)
+    return
+    puts msg
   end
 end
 
