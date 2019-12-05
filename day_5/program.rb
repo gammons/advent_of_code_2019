@@ -85,7 +85,10 @@ class Computer
     if raw_opcode.length > 1
       opcode = (raw_opcode.chars[raw_opcode.chars.length - 2..raw_opcode.chars.length].join).to_i.to_s
     end
-    params = @data[(@ip + 1)..(@ip + param_count)]
+
+    params = []
+    params = @data[(@ip + 1)..(@ip + param_count)] if opcode != INSTRUCTIONS::O_END
+
     debug "    raw_opcode = '#{raw_opcode}'"
     debug "    opcode = '#{opcode}'"
     debug "    params = #{params}"
