@@ -11,16 +11,28 @@ class Planet
     @parent = planet
   end
 
-  def parent_count
-    p ||= @parent
-
-    count = 0
-    while p != nil do
-      p  = p.parent
-      count += 1
+  def parent_list
+    list = [parent]
+    cur = parent
+    while cur.parent != nil do
+      list << cur.parent
+      cur = cur.parent
     end
 
-    count
+    list
+  end
+
+  def steps_from(planet_name)
+    parent_list.index {|p| p.name == planet_name }
+  end
+end
+
+def find_common_parent(p1, p2)
+  p1_parent_list = p1.parent_list.map(&:name)
+  p2_parent_list = p2.parent_list.map(&:name)
+
+  p1_parent_list.find do |planet|
+    p2_parent_list.any? {|p2p| p2p ==  planet }
   end
 end
 
@@ -46,4 +58,10 @@ data.each do |orbit|
   planet2.parent = planet1
 end
 
-puts planets.sum(&:parent_count)
+you = planets.find {|p| p.name == "YOU" }
+san = planets.find {|p| p.name == "SAN" }
+
+parent_name = find_common_parent(you,san)
+
+puts "Common parent: #{parent_name}"
+puts "Steps: #{you.steps_from(parent_name) + san.steps_from(parent_name)}"
