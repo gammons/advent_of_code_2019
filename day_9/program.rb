@@ -20,11 +20,11 @@ module PARAMETER_MODES
 end
 
 class Instruction
-  def initialize(ip, rb, data)
+  def initialize(ip, rb, memory)
     @ip = ip
     @rb = rb
-    @data = data
-    @opcode = @data[@ip]
+    @memory = memory
+    @opcode = @memory.get(@ip)
   end
 
   def process; end
@@ -36,11 +36,11 @@ class Instruction
   def value_for(param_num)
     case parameter_mode_for(param_num)
     when PARAMETER_MODES::IMMEDIATE
-      params[param_num].to_i
+      return params[param_num].to_i
     when PARAMETER_MODES::RELATIVE
-      @data[@rb + params[param_num].to_i].to_i
+      @memory.get(@rb + params[param_num].to_i)
     else
-      @data[params[param_num].to_i].to_i
+      @memory.get(params[param_num].to_i)
     end
   end
 
@@ -62,7 +62,7 @@ class Instruction
   end
 
   def params
-    @data[(@ip + 1)..(@ip + number_of_params)]
+    @memory.get((@ip + 1)..(@ip + number_of_params))
   end
 
   def param_values
@@ -74,7 +74,8 @@ end
 
 class AddInstruction < Instruction
   def process
-    @data[params[2].to_i] = (value_for(0) + value_for(1)).to_s
+    puts "    Add: @data[#{params[2].to_i}] =  #{value_for(0)} + #{value_for(1)}"
+    @memory.set(params[2].to_i, (value_for(0) + value_for(1)))
   end
 
   def number_of_params
@@ -84,7 +85,8 @@ end
 
 class MultiplyInstruction < Instruction
   def process
-    @data[params[2].to_i] = (value_for(0) * value_for(1)).to_s
+    puts "    Multiply: @data[#{params[2].to_i}] =  #{value_for(0)} * #{value_for(1)}"
+    @memory.set(params[2].to_i, (value_for(0) * value_for(1)))
   end
 
   def number_of_params
@@ -98,7 +100,11 @@ class InputInstruction < Instruction
   end
 
   def process
-    @data[params[0].to_i] = @input
+    byebug
+    # puts "    Input: @data[#{params[0]}] = #{@input}"
+    # @data[params[0].to_i] = @input
+    puts "    Input: @data[#{value_for(0)}] = #{@input}"
+    @memory.set(value_for(0), @input)
   end
 
   def number_of_params
@@ -127,6 +133,7 @@ end
 
 class JumpIfTrueInstruction < Instruction
   def next_ip_position
+    puts "    JumpIfTrue: if #{value_for(0)} != 0 then jump to #{value_for(1)}"
     if value_for(0) != 0
       value_for(1)
     else
@@ -141,6 +148,7 @@ end
 
 class JumpIfFalseInstruction < Instruction
   def next_ip_position
+    puts "    JumpIfFalse: if #{value_for(0)} == 0 then jump to #{value_for(1)}"
     if value_for(0) == 0
       value_for(1)
     else
@@ -155,7 +163,9 @@ end
 
 class LessThanInstruction < Instruction
   def process
-    @data[params[2].to_i] = (value_for(0) < value_for(1)) ? 1 : 0
+    puts "    LessThan: @data[#{params[2].to_i}] = #{value_for(0)} < #{value_for(1)} ? 1 : 0"
+    val = value_for(0) < value_for(1) ? 1 : 0
+    @memory.set(params[2].to_i, val)
   end
 
   def number_of_params
@@ -165,7 +175,9 @@ end
 
 class EqualsInstruction < Instruction
   def process
-    @data[params[2].to_i] = (value_for(0) == value_for(1)) ? 1 : 0
+    puts "    LessThan: @data[#{params[2].to_i}] = #{value_for(0)} == #{value_for(1)} ? 1 : 0"
+    val = value_for(0) == value_for(1) ? 1 : 0
+    @memory.set(params[2].to_i, val)
   end
 
   def number_of_params
@@ -175,11 +187,29 @@ end
 
 class AdjustRelativeBaseInstruction < Instruction
   def next_rb_position
-    @rb += value_for(0).to_i
+    @rb + value_for(0).to_i
   end
 
   def number_of_params
     1
+  end
+end
+
+class Memory
+  def initialize(data)
+    @data = data + Array.new(50_000_000, 0)
+  end
+
+  def set(addr, val)
+    @data[addr.to_i] = val.to_i
+  end
+
+  def get(addr)
+    if addr.is_a?(Range)
+      @data[addr]
+    else
+      @data[addr.to_i]
+    end
   end
 end
 
@@ -189,7 +219,7 @@ class Computer
   def load(data, inputs)
     @ip = 0
     @rb = 0
-    @data = data + Array.new(50_000_000, 0)
+    @memory = Memory.new(data)
     @inputs = inputs
     @output = []
     @done = false
@@ -198,25 +228,27 @@ class Computer
   def process
     puts "inputs = #{@inputs}"
     while !@done
-      instruction = get_instruction(@data[@ip])
+      instruction = get_instruction(@memory.get(@ip))
 
       puts "\n------------------------------"
       puts "ip = #{@ip}"
       puts "rb = #{@rb}"
-      puts "#{@data[@ip]}: #{instruction.class.name}"
+      puts "#{@memory.get(@ip)}: #{instruction.class.name}"
       puts "    with params: #{instruction.params}"
+      puts "    with param modes: #{(0..instruction.params.count - 1).map {|n| instruction.parameter_mode_for(n) } }"
       puts "    with param values: #{instruction.param_values}"
 
-      if instruction.class.name == "InputInstruction"
-        return if @inputs.length.zero?
-        @inputs.shift
-      end
+      # if instruction.class.name == "InputInstruction"
+      #   #return if @inputs.length.zero?
+      #   @inputs.shift
+      # end
 
       instruction.process
 
       @output.push(instruction.output) unless instruction.output.nil?
       @ip = instruction.next_ip_position
       @rb = instruction.next_rb_position
+      #byebug
     end
   end
 
@@ -230,33 +262,33 @@ class Computer
 
     case opcode
     when INSTRUCTIONS::ADD
-      AddInstruction.new(@ip, @rb, @data)
+      AddInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::MULTIPLY
-      MultiplyInstruction.new(@ip, @rb, @data)
+      MultiplyInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::INPUT
-      i =InputInstruction.new(@ip, @rb, @data)
-      i.set_input(@inputs[0])
+      i = InputInstruction.new(@ip, @rb, @memory)
+      i.set_input(@inputs.shift)
       i
     when INSTRUCTIONS::OUTPUT
-      OutputInstruction.new(@ip, @rb, @data)
+      OutputInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::JUMP_IF_TRUE
-      JumpIfTrueInstruction.new(@ip, @rb, @data)
+      JumpIfTrueInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::JUMP_IF_FALSE
-      JumpIfFalseInstruction.new(@ip, @rb, @data)
+      JumpIfFalseInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::LESS_THAN
-      LessThanInstruction.new(@ip, @rb, @data)
+      LessThanInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::EQUALS
-      EqualsInstruction.new(@ip, @rb, @data)
+      EqualsInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::RELATIVE_BASE_OFFSET
-      AdjustRelativeBaseInstruction.new(@ip, @rb, @data)
+      AdjustRelativeBaseInstruction.new(@ip, @rb, @memory)
     when INSTRUCTIONS::O_END
       @done = true
-      EndInstruction.new(@ip, @rb, @data)
+      EndInstruction.new(@ip, @rb, @memory)
     end
   end
 end
 
-data = File.read("input.txt").split(",")
+data = File.read("input.txt").gsub(/\n/,"").split(",")
 c = Computer.new
 c.load(data,[1])
 c.process
