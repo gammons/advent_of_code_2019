@@ -34,14 +34,22 @@ class Instruction
   end
 
   def value_for(param_num)
-    param_num = param_num.to_i
     case parameter_mode_for(param_num)
     when PARAMETER_MODES::IMMEDIATE
-      return params[param_num].to_i
+      return params[param_num]
     when PARAMETER_MODES::RELATIVE
-      @memory.get(@rb + params[param_num].to_i)
-    else
-      @memory.get(params[param_num].to_i)
+      @memory.get(@rb + params[param_num])
+    when PARAMETER_MODES::POSITION
+      @memory.get(params[param_num])
+    end
+  end
+
+  def write_value_for(param_num)
+    case parameter_mode_for(param_num)
+    when PARAMETER_MODES::RELATIVE
+      @rb + params[param_num]
+    when PARAMETER_MODES::POSITION
+      params[param_num]
     end
   end
 
@@ -75,7 +83,7 @@ end
 
 class AddInstruction < Instruction
   def process
-    @memory.set(params[2], (value_for(0) + value_for(1)))
+    @memory.set(write_value_for(2), (value_for(0) + value_for(1)))
   end
 
   def number_of_params
@@ -85,7 +93,7 @@ end
 
 class MultiplyInstruction < Instruction
   def process
-    @memory.set(params[2], (value_for(0) * value_for(1)))
+    @memory.set(write_value_for(2), (value_for(0) * value_for(1)))
   end
 
   def number_of_params
@@ -99,7 +107,7 @@ class InputInstruction < Instruction
   end
 
   def process
-    @memory.set(value_for(0), @input)
+    @memory.set(write_value_for(0), @input)
   end
 
   def number_of_params
@@ -157,7 +165,7 @@ end
 class LessThanInstruction < Instruction
   def process
     val = value_for(0) < value_for(1) ? 1 : 0
-    @memory.set(params[2].to_i, val)
+    @memory.set(write_value_for(2), val)
   end
 
   def number_of_params
@@ -168,7 +176,7 @@ end
 class EqualsInstruction < Instruction
   def process
     val = value_for(0) == value_for(1) ? 1 : 0
-    @memory.set(params[2].to_i, val)
+    @memory.set(write_value_for(2), val)
   end
 
   def number_of_params
@@ -178,29 +186,11 @@ end
 
 class AdjustRelativeBaseInstruction < Instruction
   def next_rb_position
-    @rb + value_for(0).to_i
+    @rb + value_for(0)
   end
 
   def number_of_params
     1
-  end
-end
-
-class Memory
-  def initialize(data)
-    @data = data + Array.new(50_000_000, 0)
-  end
-
-  def set(addr, val)
-    @data[addr.to_i] = val.to_i
-  end
-
-  def get(addr)
-    if addr.is_a?(Range)
-      @data[addr]
-    else
-      @data[addr.to_i]
-    end
   end
 end
 
@@ -238,21 +228,11 @@ class Computer
   end
 
   def process
-    puts "inputs = #{@inputs}"
     count = 0
     while !@done
       instruction = get_instruction(@memory.get(@ip))
 
-      puts "\n#{count += 1} ------------------------------"
-      puts "ip = #{@ip}"
-      puts "rb = #{@rb}"
-      puts "#{@memory.get(@ip)}: #{instruction.class.name}"
-      puts "    with params: #{instruction.params}"
-      puts "    with param modes: #{(0..instruction.params.count - 1).map {|n| instruction.parameter_mode_for(n) } }"
-      puts "    with param values: #{instruction.param_values}"
-
       instruction.process
-      puts "[#{@memory.get(@ip)}, #{instruction.params.join(", ")}]"
 
       @output.push(instruction.output) unless instruction.output.nil?
       @ip = instruction.next_ip_position
@@ -299,6 +279,6 @@ end
 
 data = File.read("input.txt").gsub(/\n/,"").split(",")
 c = Computer.new
-c.load(data,[1])
+c.load(data,[2])
 c.process
 puts c.output
