@@ -34,6 +34,7 @@ class Instruction
   end
 
   def value_for(param_num)
+    param_num = param_num.to_i
     case parameter_mode_for(param_num)
     when PARAMETER_MODES::IMMEDIATE
       return params[param_num].to_i
@@ -46,7 +47,7 @@ class Instruction
 
   # Get the parameter mode for param_num, zero based.
   def parameter_mode_for(param_num)
-    return @opcode.chars.reverse[param_num + 2].to_i
+    return @opcode.to_s.chars.reverse[param_num + 2].to_i
   end
 
   def next_ip_position
@@ -74,8 +75,7 @@ end
 
 class AddInstruction < Instruction
   def process
-    puts "    Add: @data[#{params[2].to_i}] =  #{value_for(0)} + #{value_for(1)}"
-    @memory.set(params[2].to_i, (value_for(0) + value_for(1)))
+    @memory.set(params[2], (value_for(0) + value_for(1)))
   end
 
   def number_of_params
@@ -85,8 +85,7 @@ end
 
 class MultiplyInstruction < Instruction
   def process
-    puts "    Multiply: @data[#{params[2].to_i}] =  #{value_for(0)} * #{value_for(1)}"
-    @memory.set(params[2].to_i, (value_for(0) * value_for(1)))
+    @memory.set(params[2], (value_for(0) * value_for(1)))
   end
 
   def number_of_params
@@ -100,10 +99,6 @@ class InputInstruction < Instruction
   end
 
   def process
-    byebug
-    # puts "    Input: @data[#{params[0]}] = #{@input}"
-    # @data[params[0].to_i] = @input
-    puts "    Input: @data[#{value_for(0)}] = #{@input}"
     @memory.set(value_for(0), @input)
   end
 
@@ -133,7 +128,6 @@ end
 
 class JumpIfTrueInstruction < Instruction
   def next_ip_position
-    puts "    JumpIfTrue: if #{value_for(0)} != 0 then jump to #{value_for(1)}"
     if value_for(0) != 0
       value_for(1)
     else
@@ -148,7 +142,6 @@ end
 
 class JumpIfFalseInstruction < Instruction
   def next_ip_position
-    puts "    JumpIfFalse: if #{value_for(0)} == 0 then jump to #{value_for(1)}"
     if value_for(0) == 0
       value_for(1)
     else
@@ -163,7 +156,6 @@ end
 
 class LessThanInstruction < Instruction
   def process
-    puts "    LessThan: @data[#{params[2].to_i}] = #{value_for(0)} < #{value_for(1)} ? 1 : 0"
     val = value_for(0) < value_for(1) ? 1 : 0
     @memory.set(params[2].to_i, val)
   end
@@ -175,7 +167,6 @@ end
 
 class EqualsInstruction < Instruction
   def process
-    puts "    LessThan: @data[#{params[2].to_i}] = #{value_for(0)} == #{value_for(1)} ? 1 : 0"
     val = value_for(0) == value_for(1) ? 1 : 0
     @memory.set(params[2].to_i, val)
   end
@@ -213,13 +204,34 @@ class Memory
   end
 end
 
+class HashMemory
+  attr_reader :data
+
+  def initialize(data)
+    @data = {}
+    data.each_with_index {|instruction,i| @data[i] = instruction.to_i }
+  end
+
+  def set(addr, val)
+    @data[addr.to_i] = val.to_i
+  end
+
+  def get(addr)
+    if addr.is_a?(Range)
+      addr.map {|i| @data[i].to_i || 0 }
+    else
+      @data[addr.to_i].to_i || 0
+    end
+  end
+end
+
 class Computer
   attr_reader :output
 
   def load(data, inputs)
     @ip = 0
     @rb = 0
-    @memory = Memory.new(data)
+    @memory = HashMemory.new(data)
     @inputs = inputs
     @output = []
     @done = false
@@ -227,10 +239,11 @@ class Computer
 
   def process
     puts "inputs = #{@inputs}"
+    count = 0
     while !@done
       instruction = get_instruction(@memory.get(@ip))
 
-      puts "\n------------------------------"
+      puts "\n#{count += 1} ------------------------------"
       puts "ip = #{@ip}"
       puts "rb = #{@rb}"
       puts "#{@memory.get(@ip)}: #{instruction.class.name}"
@@ -238,23 +251,19 @@ class Computer
       puts "    with param modes: #{(0..instruction.params.count - 1).map {|n| instruction.parameter_mode_for(n) } }"
       puts "    with param values: #{instruction.param_values}"
 
-      # if instruction.class.name == "InputInstruction"
-      #   #return if @inputs.length.zero?
-      #   @inputs.shift
-      # end
-
       instruction.process
+      puts "[#{@memory.get(@ip)}, #{instruction.params.join(", ")}]"
 
       @output.push(instruction.output) unless instruction.output.nil?
       @ip = instruction.next_ip_position
       @rb = instruction.next_rb_position
-      #byebug
     end
   end
 
   private
 
   def get_instruction(raw_opcode)
+    raw_opcode = raw_opcode.to_s
     opcode = raw_opcode
     if raw_opcode.length > 1
       opcode = (raw_opcode.chars[raw_opcode.chars.length - 2..raw_opcode.chars.length].join).to_i.to_s
