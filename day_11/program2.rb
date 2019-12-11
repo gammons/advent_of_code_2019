@@ -97,12 +97,12 @@ class HullPaintingRobot
   end
 
   def rotate_right
-    @orientation+= 1
+    @orientation += 1
     @orientation = 0 if @orientation > 3
   end
 
   def rotate_left
-    @orientation-= 1
+    @orientation -= 1
     @orientation = 3 if @orientation < 0
   end
 end
