@@ -66,9 +66,9 @@ class System
         apply_gravity
         apply_velocity
 
-        x_count = count if moon.at_initial_position?(:x) && moon.vx == 0 && count != 0 && x_count.nil?
-        y_count = count if moon.at_initial_position?(:y) && moon.vy == 0 && count != 0 && y_count.nil?
-        z_count = count if moon.at_initial_position?(:z) && moon.vz == 0 && count != 0 && z_count.nil?
+        x_count = count if moon.at_initial_position?(:x) && moon.vx == 0 && x_count.nil?
+        y_count = count if moon.at_initial_position?(:y) && moon.vy == 0 && y_count.nil?
+        z_count = count if moon.at_initial_position?(:z) && moon.vz == 0 && z_count.nil?
 
         break if x_count && y_count && z_count
       end
